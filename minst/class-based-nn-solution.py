@@ -1,3 +1,7 @@
+import cv2
+import numpy as np
+from PIL import Image
+
 import torch
 import torch.nn.functional as F
 
@@ -37,33 +41,53 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
 # get model
 model = MNIST_Model()
 
-# define loss
+# define loss and optimizer
 criterion = nn.NLLLoss()
-
-# define optimizer
 optimizer = optim.SGD(model.parameters(), lr=0.01)
 
-# get out data
+epochs = 5
+for e in range(epochs):
+
+    acc_loss = 0
+
+    for images, labels in trainloader:
+
+        # Flatten images
+        images = images.view(images.shape[0], -1)
+
+        # Reset Grads
+        optimizer.zero_grad()
+
+        # Forwards Pass
+        logps = model(images)
+
+        # Calculate loss
+        loss = criterion(logps, labels)
+        acc_loss += loss.item()
+
+        # Backwards pass
+        loss.backward()
+
+        # Optimizer step
+        optimizer.step()
+
+    print("epoch: {}       loss: {}".format(e, acc_loss/len(trainloader)))
+
+print("Done Training")
+
+# get single image
 images, labels = next(iter(trainloader))
+img = images[0].view(1, 784)
 
-# Flatten images
-images = images.view(images.shape[0], -1)
+# make prediction on image
+with torch.no_grad():
+    logits = model.forward(img)
 
-# Reset Grads
-optimizer.zero_grad()
+# get probabilities
+ps = F.softmax(logits, dim=1)
 
-# Forwards Pass
-logps = model(images)
-
-# Calculate loss
-loss = criterion(logps, labels)
-
-# Backwards pass
-loss.backward()
-
-# Optimizer step
-optimizer.step()
-
-print(logps.shape)
-print(loss)
+print(logits)
+print(F.softmax(logits))
+im = Image.fromarray(np.uint8(img.view(28, 28).data.numpy()))
+im.show()
 
