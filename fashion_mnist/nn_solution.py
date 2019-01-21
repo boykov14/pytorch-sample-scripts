@@ -7,22 +7,24 @@ import torch.nn.functional as F
 from torch import nn, optim
 from torchvision import datasets, transforms
 
-class MNIST_Model(nn.Module):
-    def __init__(self):
+class Fashion_Classifier(nn.Module):
+    def __init__(self, Input):
         super().__init__()
 
-        # network architecture
-        self.hid1 = nn.Linear(784, 256)
-        self.hid2 = nn.Linear(256, 128)
-        self.hid3 = nn.Linear(128, 64)
-        self.out = nn.Linear(64, 10)
+        self.h1 = nn.Linear(Input, 256)
+        self.h2 = nn.Linear(256, 128)
+        self.h3 = nn.Linear(128, 64)
+        self.h4 = nn.Linear(64, 10)
 
     def forward(self, x):
-        # forwards prop of input
-        x = F.relu(self.hid1(x))
-        x = F.relu(self.hid2(x))
-        x = F.relu(self.hid3(x))
-        x = F.log_softmax(self.out(x), dim=1)
+        # flatten input
+        x = x.view(x.shape[0], -1)
+
+        # forward prop
+        x = F.relu(self.h1(x))
+        x = F.relu(self.h2(x))
+        x = F.relu(self.h3(x))
+        x = F.log_softmax(self.h4(x), dim=1)
 
         return x
 
@@ -33,43 +35,31 @@ transform = transforms.Compose([transforms.ToTensor(),
                                 ])
 
 # download minst data
-trainset = datasets.MNIST('MNIST_data/', download=True, train=True, transform=transform)
+trainset = datasets.FashionMNIST('FashionMNIST_data/', download=True, train=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
 
-# get model
-model = MNIST_Model()
-
-# define loss and optimizer
+# set up model and optimiser
+model = Fashion_Classifier(784)
 criterion = nn.NLLLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.01)
+optimizer = optim.Adam(model.parameters(), lr=0.003)
+
 
 epochs = 5
+
 for e in range(epochs):
-
     acc_loss = 0
-
     for images, labels in trainloader:
-
-        # Flatten images
-        images = images.view(images.shape[0], -1)
-
-        # Reset Grads
-        optimizer.zero_grad()
-
-        # Forwards Pass
+        # calculating loss
         logps = model(images)
-
-        # Calculate loss
         loss = criterion(logps, labels)
         acc_loss += loss.item()
 
-        # Backwards pass
+        # updating weights
+        optimizer.zero_grad()
         loss.backward()
-
-        # Optimizer step
         optimizer.step()
 
-    print("epoch: {}       loss: {}".format(e, acc_loss/len(trainloader)))
+    print("epoch: {}       loss: {}".format(e, acc_loss / len(trainloader)))
 
 print("Done Training")
 
@@ -82,10 +72,8 @@ with torch.no_grad():
     logits = model.forward(img)
 
 # get probabilities
-ps = F.softmax(logits, dim=1)
+ps = torch.exp(model(img))
 
-print(logits)
-print(F.softmax(logits))
+print(ps)
 im = Image.fromarray(np.uint8(img.view(28, 28).data.numpy()))
 im.show()
-
